@@ -54,7 +54,24 @@ cpi_dates = cpi_df['Date'].dt.date
 # Filter out CPI data to match only the dates available in TCS stock data
 cpi_df_filtered = cpi_df[cpi_df['Date'].dt.date.isin(tcs_dates)]
 
-# Now merge the two datasets
+# Ensure both 'Date' columns are in the same format
+tcs_resampled['Date'] = tcs_resampled['Date'].dt.date
+cpi_df_filtered['Date'] = cpi_df_filtered['Date'].dt.date
+
+# Check for common dates between TCS and CPI data
+common_dates = set(tcs_resampled['Date']).intersection(set(cpi_df_filtered['Date']))
+if not common_dates:
+    print("No common dates found between TCS and CPI data.")
+else:
+    print(f"Common dates found: {len(common_dates)}")
+
+# Check if either DataFrame is empty after filtering
+if cpi_df_filtered.empty:
+    print("Filtered CPI data is empty.")
+if tcs_resampled.empty:
+    print("TCS resampled data is empty.")
+
+# Merge the two datasets on 'Date'
 tcs = pd.merge(tcs_resampled, cpi_df_filtered, on='Date', how='inner')
 
 # Drop any rows with missing data after merging
