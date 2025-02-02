@@ -16,14 +16,16 @@ tcs['Daily Return'] = tcs['Close'].pct_change()
 # Calculate Rolling Annualized Volatility (252 trading days in a year)
 tcs['Volatility'] = tcs['Daily Return'].rolling(window=30).std() * np.sqrt(252)
 
-# Prepare CPI Inflation Data
+# Prepare CPI Inflation Data (Month-Year format -> CPI values)
 cpi_data = {
-    'Date': pd.date_range(start='2022-01-01', periods=len([
-        5.837563452, 5.042016807, 5.351170569, 6.32805995, 6.965174129, 6.162695152, 5.781758958,
-        5.853658537, 6.488240065, 6.084867894, 5.409705648, 5.502392344, 6.155075939, 6.16,
-        5.793650794, 5.090054816, 4.418604651, 5.572755418, 7.544264819, 6.912442396, 5.02, 4.87,
-        5.55, 5.69, 5.1, 5.09, 4.85, 4.83, 4.75, 5.08, 3.54, 3.65, 5.49
-    ]), freq='M'),
+    'Date': [
+        '2022-01-01', '2022-02-01', '2022-03-01', '2022-04-01', '2022-05-01', '2022-06-01',
+        '2022-07-01', '2022-08-01', '2022-09-01', '2022-10-01', '2022-11-01', '2022-12-01',
+        '2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01', '2023-06-01',
+        '2023-07-01', '2023-08-01', '2023-09-01', '2023-10-01', '2023-11-01', '2023-12-01',
+        '2024-01-01', '2024-02-01', '2024-03-01', '2024-04-01', '2024-05-01', '2024-06-01',
+        '2024-07-01', '2024-08-01', '2024-09-01'
+    ],
     'CPI Inflation': [
         5.837563452, 5.042016807, 5.351170569, 6.32805995, 6.965174129, 6.162695152, 5.781758958,
         5.853658537, 6.488240065, 6.084867894, 5.409705648, 5.502392344, 6.155075939, 6.16,
@@ -31,15 +33,22 @@ cpi_data = {
         5.55, 5.69, 5.1, 5.09, 4.85, 4.83, 4.75, 5.08, 3.54, 3.65, 5.49
     ]
 }
+
+# Convert the CPI data into DataFrame
 cpi_df = pd.DataFrame(cpi_data)
 
-# Ensure 'Date' column in both dataframes is in datetime format
-tcs['Date'] = pd.to_datetime(tcs.index)
+# Convert 'Date' column in CPI data to datetime format
 cpi_df['Date'] = pd.to_datetime(cpi_df['Date'])
 
-# Merge the stock data and CPI data on 'Date' column
-tcs = tcs.resample('M').last().reset_index()  # Resample to monthly frequency
-tcs = pd.merge(tcs, cpi_df, on='Date', how='inner')
+# Ensure 'Date' column in TCS data is also in datetime format
+tcs['Date'] = pd.to_datetime(tcs.index)
+
+# Resample TCS data to monthly frequency and reset index
+tcs_resampled = tcs.resample('M').last()  # Resample to monthly frequency
+tcs_resampled = tcs_resampled.reset_index(drop=True)
+
+# Merge the stock data (TCS) with CPI inflation data
+tcs = pd.merge(tcs_resampled, cpi_df, on='Date', how='inner')
 
 # Drop any rows with missing data after merging
 tcs.dropna(inplace=True)
