@@ -1,107 +1,80 @@
-import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error
 import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-# Fetch TCS.NS Stock Data
-tcs = yf.download('TCS.NS', start="2022-01-01", end="2024-10-01")
+# 📌 Step 1: Fetch TCS.NS Stock Data from Yahoo Finance
+tcs = yf.download('TCS.NS', start='2022-01-01', end='2024-09-30')
 
-# Compute Daily Returns
-tcs['Daily Return'] = tcs['Close'].pct_change()
+# 📌 Step 2: Prepare Stock Data
+tcs = tcs[['Close']]  # Use 'Close' price instead of 'Adj Close'
+tcs = tcs.reset_index()  # Reset index to get 'Date' column
+tcs['Date'] = pd.to_datetime(tcs['Date'])
+tcs['Daily Return'] = tcs['Close'].pct_change()  # Calculate Daily Return
+tcs.dropna(inplace=True)  # Remove NaN values
 
-# Calculate Rolling Annualized Volatility (252 trading days in a year)
-tcs['Volatility'] = tcs['Daily Return'].rolling(window=30).std() * np.sqrt(252)
-
-# Prepare CPI Inflation Data
+# 📌 Step 3: CPI Inflation Data (Manually Provided)
 cpi_data = {
-    'Date': pd.date_range(start='2022-01-01', periods=len([
-        5.837563452, 5.042016807, 5.351170569, 6.32805995, 6.965174129, 6.162695152, 5.781758958,
-        5.853658537, 6.488240065, 6.084867894, 5.409705648, 5.502392344, 6.155075939, 6.16,
-        5.793650794, 5.090054816, 4.418604651, 5.572755418, 7.544264819, 6.912442396, 5.02, 4.87,
-        5.55, 5.69, 5.1, 5.09, 4.85, 4.83, 4.75, 5.08, 3.54, 3.65, 5.49
-    ]), freq='M'),
+    'Date': [
+        '2022-01-01', '2022-02-01', '2022-03-01', '2022-04-01', '2022-05-01', '2022-06-01', 
+        '2022-07-01', '2022-08-01', '2022-09-01', '2022-10-01', '2022-11-01', '2022-12-01',
+        '2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01', '2023-06-01', 
+        '2023-07-01', '2023-08-01', '2023-09-01', '2023-10-01', '2023-11-01', '2023-12-01',
+        '2024-01-01', '2024-02-01', '2024-03-01', '2024-04-01', '2024-05-01', '2024-06-01',
+        '2024-07-01', '2024-08-01', '2024-09-01'
+    ],
     'CPI Inflation': [
-        5.837563452, 5.042016807, 5.351170569, 6.32805995, 6.965174129, 6.162695152, 5.781758958,
-        5.853658537, 6.488240065, 6.084867894, 5.409705648, 5.502392344, 6.155075939, 6.16,
-        5.793650794, 5.090054816, 4.418604651, 5.572755418, 7.544264819, 6.912442396, 5.02, 4.87,
-        5.55, 5.69, 5.1, 5.09, 4.85, 4.83, 4.75, 5.08, 3.54, 3.65, 5.49
+        5.83, 5.04, 5.35, 6.32, 6.96, 6.16, 5.78, 5.85, 6.48, 6.08, 5.40, 5.50,
+        6.15, 6.16, 5.79, 5.09, 4.41, 5.57, 7.54, 6.91, 5.02, 4.87, 5.55, 5.69,
+        5.10, 5.09, 4.85, 4.83, 4.75, 5.08, 3.54, 3.65, 5.49
     ]
 }
+
 cpi_df = pd.DataFrame(cpi_data)
+cpi_df['Date'] = pd.to_datetime(cpi_df['Date'])  # Convert Date column to datetime
 
-# Merge with stock data
-tcs = tcs.resample('M').last().reset_index()
+# 📌 Step 4: Merge TCS Data with CPI Inflation Data
 tcs = pd.merge(tcs, cpi_df, on='Date', how='inner')
-tcs.dropna(inplace=True)
 
-# Define Features (CPI Inflation) and Target Variables (Return & Volatility)
+# 📌 Step 5: Prepare Data for Machine Learning
 X = tcs[['CPI Inflation']]
-y_return = tcs['Daily Return']
-y_volatility = tcs['Volatility']
+y = tcs['Daily Return']
 
-# Split data for training & testing
-X_train, X_test, y_return_train, y_return_test = train_test_split(X, y_return, test_size=0.2, random_state=42)
-X_train, X_test, y_vol_train, y_vol_test = train_test_split(X, y_volatility, test_size=0.2, random_state=42)
+# Split into Train & Test Sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Train Random Forest Model
-rf_return = RandomForestRegressor(n_estimators=100, random_state=42)
-rf_vol = RandomForestRegressor(n_estimators=100, random_state=42)
+# 📌 Step 6: Train the Model
+model = LinearRegression()
+model.fit(X_train, y_train)
 
-rf_return.fit(X_train, y_return_train)
-rf_vol.fit(X_train, y_vol_train)
+# 📌 Step 7: Evaluate Model Performance
+y_pred = model.predict(X_test)
 
-# Predict on test data
-y_return_pred = rf_return.predict(X_test)
-y_vol_pred = rf_vol.predict(X_test)
+mae = mean_absolute_error(y_test, y_pred)
+mse = mean_squared_error(y_test, y_pred)
+rmse = np.sqrt(mse)
+r2 = r2_score(y_test, y_pred)
 
-# Model Accuracy
-return_mae = mean_absolute_error(y_return_test, y_return_pred)
-volatility_mae = mean_absolute_error(y_vol_test, y_vol_pred)
+print(f"📊 Model Accuracy Metrics:")
+print(f"   ✅ Mean Absolute Error (MAE): {mae:.6f}")
+print(f"   ✅ Root Mean Squared Error (RMSE): {rmse:.6f}")
+print(f"   ✅ R-squared (R²): {r2:.6f}")
 
-# Streamlit UI
-st.title("TCS.NS Stock Prediction Based on CPI Inflation")
-st.write("This app predicts TCS.NS stock return and risk based on expected inflation changes.")
+# 📌 Step 8: Predict Stock Return for User-Input CPI Inflation
+expected_cpi = float(input("\n📌 Enter Expected CPI Inflation (%): "))
+predicted_return = model.predict([[expected_cpi]])[0]
 
-# User Input for Expected CPI Inflation
-cpi_input = st.number_input("Enter Expected CPI Inflation:", min_value=0.0, max_value=10.0, value=5.0, step=0.01)
+print(f"\n📈 Predicted Stock Return for CPI {expected_cpi}%: {predicted_return:.6f}")
 
-# Predict Future Risk & Return
-future_cpi = np.array([cpi_input]).reshape(-1, 1)
-predicted_return = rf_return.predict(future_cpi)[0]
-predicted_volatility = rf_vol.predict(future_cpi)[0]
-
-# Display Results
-st.subheader("Prediction Results:")
-st.write(f"📈 **Predicted Stock Return:** {predicted_return:.4f}")
-st.write(f"📉 **Predicted Stock Volatility:** {predicted_volatility:.4f}")
-
-# Show Model Accuracy
-st.subheader("Model Accuracy:")
-st.write(f"✅ **Mean Absolute Error (Return Prediction):** {return_mae:.6f}")
-st.write(f"✅ **Mean Absolute Error (Volatility Prediction):** {volatility_mae:.6f}")
-
-# Visualization
-fig, ax = plt.subplots(1, 2, figsize=(12, 5))
-
-# Inflation vs Stock Return
-ax[0].scatter(tcs['CPI Inflation'], tcs['Daily Return'], label='Actual Returns', color='blue')
-ax[0].plot(X_test, y_return_pred, color='red', label='Predicted Returns')
-ax[0].set_xlabel('CPI Inflation')
-ax[0].set_ylabel('Stock Return')
-ax[0].set_title('Inflation vs Stock Return')
-ax[0].legend()
-
-# Inflation vs Stock Volatility
-ax[1].scatter(tcs['CPI Inflation'], tcs['Volatility'], label='Actual Volatility', color='blue')
-ax[1].plot(X_test, y_vol_pred, color='red', label='Predicted Volatility')
-ax[1].set_xlabel('CPI Inflation')
-ax[1].set_ylabel('Stock Volatility')
-ax[1].set_title('Inflation vs Stock Volatility')
-ax[1].legend()
-
-# Show plot in Streamlit
-st.pyplot(fig)
+# 📌 Step 9: Visualizing Results
+plt.figure(figsize=(10, 5))
+sns.regplot(x=tcs['CPI Inflation'], y=tcs['Daily Return'], scatter_kws={"color": "blue"}, line_kws={"color": "red"})
+plt.xlabel("CPI Inflation (%)")
+plt.ylabel("TCS Daily Return")
+plt.title("TCS Stock Returns vs CPI Inflation")
+plt.grid(True)
+plt.show()
