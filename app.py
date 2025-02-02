@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 tcs = yf.download('TCS.NS', start="2022-01-01", end="2024-10-01")
 
 # Compute Daily Returns
-tcs['Daily Return'] = tcs['Adj Close'].pct_change()
+tcs['Daily Return'] = tcs['Close'].pct_change()
 
 # Calculate Rolling Annualized Volatility (252 trading days in a year)
 tcs['Volatility'] = tcs['Daily Return'].rolling(window=30).std() * np.sqrt(252)
