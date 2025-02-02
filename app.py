@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 # Fetch TCS.NS Stock Data
 tcs = yf.download('TCS.NS', start="2022-01-01", end="2024-10-01")
 
-# Compute Daily Returns
+# Compute Daily Returns using 'Close' price
 tcs['Daily Return'] = tcs['Close'].pct_change()
 
 # Calculate Rolling Annualized Volatility (252 trading days in a year)
@@ -33,9 +33,15 @@ cpi_data = {
 }
 cpi_df = pd.DataFrame(cpi_data)
 
-# Merge with stock data
-tcs = tcs.resample('M').last().reset_index()
+# Ensure 'Date' column in both dataframes is in datetime format
+tcs['Date'] = pd.to_datetime(tcs.index)
+cpi_df['Date'] = pd.to_datetime(cpi_df['Date'])
+
+# Merge the stock data and CPI data on 'Date' column
+tcs = tcs.resample('M').last().reset_index()  # Resample to monthly frequency
 tcs = pd.merge(tcs, cpi_df, on='Date', how='inner')
+
+# Drop any rows with missing data after merging
 tcs.dropna(inplace=True)
 
 # Define Features (CPI Inflation) and Target Variables (Return & Volatility)
@@ -47,7 +53,7 @@ y_volatility = tcs['Volatility']
 X_train, X_test, y_return_train, y_return_test = train_test_split(X, y_return, test_size=0.2, random_state=42)
 X_train, X_test, y_vol_train, y_vol_test = train_test_split(X, y_volatility, test_size=0.2, random_state=42)
 
-# Train Random Forest Model
+# Train Random Forest Model for Return and Volatility
 rf_return = RandomForestRegressor(n_estimators=100, random_state=42)
 rf_vol = RandomForestRegressor(n_estimators=100, random_state=42)
 
