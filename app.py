@@ -47,8 +47,15 @@ tcs['Date'] = pd.to_datetime(tcs.index)
 tcs_resampled = tcs.resample('M').last()  # Resample to monthly frequency
 tcs_resampled = tcs_resampled.reset_index(drop=True)
 
-# Merge the stock data (TCS) with CPI inflation data
-tcs = pd.merge(tcs_resampled, cpi_df, on='Date', how='inner')
+# Check for matching date ranges between TCS and CPI data
+tcs_dates = tcs_resampled['Date'].dt.date
+cpi_dates = cpi_df['Date'].dt.date
+
+# Filter out CPI data to match only the dates available in TCS stock data
+cpi_df_filtered = cpi_df[cpi_df['Date'].dt.date.isin(tcs_dates)]
+
+# Now merge the two datasets
+tcs = pd.merge(tcs_resampled, cpi_df_filtered, on='Date', how='inner')
 
 # Drop any rows with missing data after merging
 tcs.dropna(inplace=True)
